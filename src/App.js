@@ -1,10 +1,13 @@
 import React, { Component } from 'react';
 import _ from 'lodash';
 import axios from 'axios';
+import { confirmAlert } from 'react-confirm-alert';
+import 'react-confirm-alert/src/react-confirm-alert.css'
 
 import Select from 'react-select';
 import 'react-select/dist/react-select.css';
 import './App.css';
+import {composeBuildObject} from "./Utils";
 
 
 const marks = [
@@ -363,7 +366,27 @@ class App extends Component {
   constructor(props) {
     super(props);
 
-    this.state = {
+    this.state = this.getInitialState();
+
+    this.customOptionChange = this.customOptionChange.bind(this);
+    this.calcSkillsSum = this.calcSkillsSum.bind(this);
+
+    this.raise_stat = this.raise_stat.bind(this);
+    this.lower_stat = this.lower_stat.bind(this);
+
+    this.postBuild = this.postBuild.bind(this);
+    this.deleteCard = this.deleteCard.bind(this);
+    this.editCard = this.editCard.bind(this);
+    this.cancelEdit = this.cancelEdit.bind(this);
+  }
+
+
+  componentDidMount() {
+    this.updateList();
+  }
+
+  getInitialState() {
+    return {
       year: '2015',
       type: 'lecturer',
       number: 1,
@@ -377,20 +400,7 @@ class App extends Component {
       acting: _.random(1, 4),
       cards: [],
       posted: false,
-    };
-
-    this.customOptionChange = this.customOptionChange.bind(this);
-    this.calcSkillsSum = this.calcSkillsSum.bind(this);
-
-    this.raise_stat = this.raise_stat.bind(this);
-    this.lower_stat = this.lower_stat.bind(this);
-
-    this.postBuild = this.postBuild.bind(this);
-  }
-
-
-  componentDidMount() {
-    this.updateList();
+    }
   }
 
   updateList() {
@@ -439,19 +449,8 @@ class App extends Component {
 
 
   postBuild() {
-    let build = {
-      year: this.state.year,
-      type: this.state.type,
-      number: this.state.number,
-      name: this.state.type === 'action' ? this.state.name : this.state.name.label,
-      resource: this.state.type === 'action' ? this.state.resource : this.state.resource.label,
-      cost: this.state.cost,
-      text: (this.state.type === 'volunteer' || this.state.type === 'action') ? this.state.text.label : this.state.text.label,
-      physics: this.state.physics,
-      biology: this.state.biology,
-      presentation: this.state.presentation,
-      acting: this.state.acting
-    };
+    let build = composeBuildObject(this.state);
+
 
     axios.post('/15x4/cards', build)
         .then(res => {
@@ -460,6 +459,58 @@ class App extends Component {
           this.updateList();
         });
 
+    setTimeout(() => this.setState({ posted: false }), 3000)
+  }
+
+
+  deleteCard(cardId) {
+    const perform = () => {
+      axios.delete(`/15x4/cards/${cardId}`)
+          .then((res) => this.updateList())
+          .catch(reason => alert(`An error occurred: \\n${reason}`));
+    };
+
+    confirmAlert({
+      title: 'Delete?',
+      message: 'Do you want to delete this card?',
+      buttons: [
+        {
+          label: 'Yes',
+          onClick: perform
+        },
+        {
+          label: 'No',
+          onClick: () => alert('Click No')
+        }
+      ]
+    })
+  }
+
+
+  initCardEdit(cardId) {
+    axios.get(`/15x4/cards/${cardId}`)
+        .then(res => {
+          const { createdAt, updatedAt, __v, ...necessaryData} = res.data;
+          this.setState(necessaryData);
+        }).catch(reason => alert(`An error occurred: \\n${reason}`));
+  };
+
+
+  editCard() {
+    const build = composeBuildObject(this.state);
+    console.log(build);
+
+      axios.put(`/15x4/cards/${this.state._id}`, build)
+          .then(res => {
+            this.setState({...this.getInitialState(), _id: undefined});
+            this.updateList();
+          })
+          .catch(reason => alert(`An error occurred: \\n${reason}`));
+  };
+
+  cancelEdit() {
+    this.setState({...this.getInitialState(), _id: undefined});
+    this.updateList();
   }
 
 
@@ -568,11 +619,20 @@ class App extends Component {
     </div>
   }
 
-  <div>
-    {this.state.posted ?
-  <button className="btn btn-info"> Posted! </button> :
-  <button className="btn btn-success" onClick={() => { this.postBuild(); }}> Post build! </button>}
-  </div>
+  {!this.state._id &&
+      <div>
+        {this.state.posted ?
+          <button className="btn btn-info"> Posted! </button> :
+          <button className="btn btn-success" onClick={() => { this.postBuild(); }}> Post build! </button>
+        }
+      </div>
+  }
+  {this.state._id &&
+      <div>
+          <button className="btn btn-warning" onClick={this.editCard}> Edit! </button>
+          <button className="btn btn-danger" onClick={this.cancelEdit}> Cancel Edit! </button>
+      </div>
+  }
     </div>
 
 
@@ -610,6 +670,8 @@ class App extends Component {
     <td>{row.biology}</td>
     <td>{row.presentation}</td>
     <td>{row.acting}</td>
+    <td><button className="btn btn-danger" onClick={() => this.deleteCard(row._id)}> Delete</button></td>
+    <td><button className="btn btn-warning" onClick={() => this.initCardEdit(row._id)}> Edit</button></td>
     </tr>
   )}
   </tbody>
