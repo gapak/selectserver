@@ -55,14 +55,14 @@ exports.findOne = (req, res) => {
         if(!card) {
             return res.status(404).send({
                 message: "Card not found with id " + req.params.cardId
-            });            
+            });
         }
         res.send(card);
     }).catch(err => {
         if(err.kind === 'ObjectId') {
             return res.status(404).send({
                 message: "Card not found with id " + req.params.cardId
-            });                
+            });
         }
         return res.status(500).send({
             message: "Error retrieving card with id " + req.params.cardId
@@ -73,17 +73,14 @@ exports.findOne = (req, res) => {
 // Update a card identified by the cardId in the request
 exports.update = (req, res) => {
     // Validate Request
-    if(!req.body.content) {
+    if(!req.body) {
         return res.status(400).send({
             message: "Card content can not be empty"
         });
     }
 
     // Find card and update it with the request body
-    selectModel(req.params.gameId).findByIdAndUpdate(req.params.cardId, {
-        title: req.body.title || "Untitled Card",
-        content: req.body.content
-    }, {new: true})
+    selectModel(req.params.gameId).findByIdAndUpdate(req.params.cardId, req.body, {new: false})
     .then(card => {
         if(!card) {
             return res.status(404).send({
@@ -95,7 +92,7 @@ exports.update = (req, res) => {
         if(err.kind === 'ObjectId') {
             return res.status(404).send({
                 message: "Card not found with id " + req.params.cardId
-            });                
+            });
         }
         return res.status(500).send({
             message: "Error updating card with id " + req.params.cardId
@@ -117,7 +114,7 @@ exports.delete = (req, res) => {
         if(err.kind === 'ObjectId' || err.name === 'NotFound') {
             return res.status(404).send({
                 message: "Card not found with id " + req.params.cardId
-            });                
+            });
         }
         return res.status(500).send({
             message: "Could not delete card with id " + req.params.cardId
